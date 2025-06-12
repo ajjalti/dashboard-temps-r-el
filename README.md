@@ -34,7 +34,7 @@ Le frontend utilise Chart.js pour afficher des graphiques dynamiques et Socket.I
 1. Cloner le dépôt :
 
 ```bash
-git clone https://github.com/ajjalti/dashboard-temps-r-el.git
+git clone https://github.com/ajjalti/dashboard-temps-reel.git
 cd dashboard-temps-r-el
 ````
 
