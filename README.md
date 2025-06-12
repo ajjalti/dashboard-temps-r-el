@@ -121,6 +121,6 @@ MIT
 
 ## Auteur
 
-Ton Nom - [ahmed.ajjalti@gmail.com](mailto:ahmed.ajjalti@gmail.com)
+Ahmed AJJALTI - [ahmed.ajjalti@gmail.com](mailto:ahmed.ajjalti@gmail.com)
 
 ```
