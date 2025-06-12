@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard Temps Réel</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.0.0"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body{
+      position: relative;
+      padding-block: 50px;
+    }
+    canvas {
+      max-width: 900px;
+      width: 900px;
+      height: 800px;
+      max-height: 800px;
+      margin: 20px auto;
+      margin-top: 100px;
+      display: block;
+    }
+    h1{
+      text-align: center;
+    }
+    button#logout{
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dashboard Temps Réel</h1>
+  <button id="logout" class="bg-blue-600 px-4 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200">Déconnexion</button>
+  <canvas id="chart"></canvas>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const ctx = document.getElementById('chart').getContext('2d');
+
+    const sensorIds = ['temp', 'humidity', 'pressure'];
+    const colors = {
+      temp: 'rgba(255, 99, 132, 1)',
+      humidity: 'rgba(54, 162, 235, 1)',
+      pressure: 'rgba(75, 192, 192, 1)'
+    };
+
+    const data = {
+      labels: [],
+      datasets: sensorIds.map(id => ({
+        label: id,
+        data: [],
+        borderColor: colors[id],
+        fill: false,
+        tension: 0.3,
+      }))
+    };
+
+    const config = {
+      type: 'line',
+      data: data,
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: 'second' },
+            adapters: {
+              date: luxon.DateTime
+            }
+          },
+          y: {
+            beginAtZero: true,
+            max: 100
+          }
+        }
+      }
+    };
+
+    const chart = new Chart(ctx, config);
+
+    // Connexion Socket.IO avec token JWT
+    const socket = io('http://localhost:3000', {
+      auth: { token }
+    });
+
+    socket.on('connect_error', (err) => {
+      alert('Erreur connexion socket: ' + err.message);
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    // Met à jour le graphique à chaque donnée reçue
+    socket.on('sensor-data', (payload) => {
+      const time = new Date(payload.timestamp);
+
+      // Met à jour les labels
+      data.labels.push(time);
+
+      // Met à jour les données de chaque capteur
+      data.datasets.forEach(ds => {
+        if (ds.label === payload.sensorId) {
+          ds.data.push(payload.value);
+        } else {
+          ds.data.push(null);
+        }
+      });
+
+      // Garder 30 derniers points max
+      if (data.labels.length > 30) {
+        data.labels.shift();
+        data.datasets.forEach(ds => ds.data.shift());
+      }
+
+      chart.update();
+    });
+
+    // Logout
+    document.getElementById('logout').onclick = () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    };
+
+    // Charger historique données au chargement
+    async function loadHistory() {
+      for (const sensorId of sensorIds) {
+        const res = await fetch(`http://localhost:3000/api/data/${sensorId}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const history = await res.json();
+
+        // On remplit dataset correspondant avec l'historique
+        history.forEach(item => {
+          data.labels.push(new Date(item.timestamp));
+          data.datasets.forEach(ds => {
+            if (ds.label === sensorId) {
+              ds.data.push(item.value);
+            } else {
+              ds.data.push(null);
+            }
+          });
+        });
+      }
+
+      chart.update();
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>
